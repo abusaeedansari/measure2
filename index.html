@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Measure2 Challenge</title>
+<link rel="icon" type="image/svg+xml" href="ruler.png"> 
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  body {
+    font-family: "Open Sans", sans-serif;
+    background: #E6F4FF; /* Changed from #FFF4D9 */
+    margin: 0; padding: 0; color: #333;
+  }
+  header {
+    background: #466D99; /* Changed from #659287 */
+    color: #fff;
+    padding: 20px; text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    margin: 0; font-size: 2.2em; font-family: "Space Mono", monospace; letter-spacing: 1px;
+  }
+  .container {
+    max-width: 700px; margin: 20px auto;
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden; padding: 20px;
+    margin-bottom: 40px;
+  }
+  .intro, .game-area, .result-area { display: none; }
+  .active { display: block; }
+  .intro p {
+    font-size: 1.2em; text-align: left; line-height:1.6em;
+  }
+  .input-group { margin: 20px 0; display: flex; flex-direction: column; align-items: center; }
+  .input-group input, .input-group select {
+    padding: 10px; width: 220px; box-sizing: border-box;
+    margin-bottom: 15px; border: 1px solid #aaa; border-radius: 5px; font-size: 1.1em;
+  }
+  .button {
+    background: #466D99;
+    color: #fff; padding: 12px 24px;
+    border: none; border-radius:5px;
+    cursor: pointer; font-size: 1.1em; margin: 12px 0;
+    display: inline-block; font-family:"Space Mono", monospace;
+    transition: background 0.3s ease; text-align:center;
+  }
+  .button:hover { background: #37557A; }
+  .question-count {
+    font-weight: bold; margin-bottom: 15px; font-size: 1.2em; text-align:center;
+    font-family:"Space Mono", monospace; color:#333;
+  }
+  .question-text {
+    margin-bottom: 20px; font-size: 1.3em; text-align:center; font-weight:bold;
+    font-family:"Space Mono", monospace; color:#333;
+  }
+  .feedback {
+    font-size:1.1em; margin-bottom:20px; padding:10px;
+    border-radius:5px; text-align:center; font-weight:bold;
+    margin-top: 16px;
+  }
+  .feedback.correct {
+    background:#d2e3bf; border:1px solid #9ed98b; color:#333;
+    margin: 16px;
+  }
+  .feedback.incorrect {
+    background:#ffdfed; border:1px solid #e5a5a5; color:#333;
+    margin: 16px;
+  }
+  .explanation {
+    font-size:1.1em; margin-bottom:20px; text-align:center; font-style: italic; color:#555;
+  }
+  .scoreboard, .timer {
+    font-size:1.1em; font-family:"Space Mono", monospace; font-weight:bold; color:#374E63;
+    text-align:center; margin-bottom:20px;
+  }
+  footer {
+    text-align:center; color:#444; margin:20px 0; font-size:1em; font-family:"Open Sans", sans-serif;
+  }
+  footer a {
+    color: #444;
+    text-decoration: none;
+    font-size: 1em;
+    font-family: "Open Sans", sans-serif;
+  }
+</style>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>Measure2 Challenge</h1>
+</header>
+
+<div class="container">
+  <!-- Intro Section -->
+  <div class="intro active" id="intro">
+    <h2 style="font-family:'Space Mono', monospace; font-size:1.6em; text-align:center;">Welcome!</h2>
+    <p>
+      In this challenge, convert lengths between meters, centimeters, and kilometers, just like in your textbook examples.  
+      You have 30 minutes total. Try your best and have fun!
+    </p>
+    <div class="input-group">
+      <input type="text" id="playerName" placeholder="Your Name"/>
+      <select id="division">
+        <option value="" disabled selected>Select Division</option>
+        <option value="A">Division A</option>
+        <option value="B">Division B</option>
+      </select>
+      <input type="number" id="rollNo" placeholder="Enter Roll Number"/>
+    </div>
+    <button class="button" onclick="startGame()">Start</button>
+    <div id="infoMsg" class="info-msg" style="font-size:1.1em; margin-top:10px; color:#fc5185; text-align:center; display:none;"></div>
+  </div>
+
+  <!-- Game Section -->
+  <div class="game-area" id="game-area">
+    <div class="timer" id="timer">Time: 30:00</div>
+    <div class="scoreboard" id="scoreboard">Score: 0</div>
+    <div class="question-count" id="question-count"></div>
+    <div class="question-text" id="question-text"></div>
+
+    <div style="text-align:center;">
+      <input type="text" id="userAnswer" placeholder="Type your answer here" style="padding:10px;font-size:1.1em;width:220px;"/>
+    </div>
+
+    <div class="feedback" id="feedback" style="display:none;"></div>
+    <div class="explanation" id="explanation" style="display:none;"></div>
+    <button class="button" id="actionBtn" onclick="actionButtonClicked()">Check</button>
+  </div>
+
+  <!-- Result Section -->
+  <div class="result-area" id="result-area">
+    <h2 style="font-family:'Space Mono', monospace; font-size:1.8em; text-align:center;">Well Done!</h2>
+    <p id="final-message" style="font-size:1.2em; text-align:center;"></p>
+    <p id="final-score" style="font-size:1.2em; text-align:center;"></p>
+    <p style="text-align:center;">Thank you for playing! Keep practicing!</p>
+  </div>
+</div>
+
+<footer>
+  <p>All the best!</p>
+  <a href="https://www.flaticon.com/free-icons/ruler" title="ruler icons">Ruler icons by Freepik - Flaticon</a>
+</footer>
+
+<script>
+/*
+  Firebase configuration (same as your Time challenge).
+  We store everything in the same manner, just quiz = "measure2" instead of "time4".
+*/
+const firebaseConfig = {
+  apiKey: "AIzaSyB-RDLOoTlaio0VgtFh7eencMr9ekdFEEk",
+  authDomain: "test-app-1-6ade5.firebaseapp.com",
+  databaseURL: "https://test-app-1-6ade5-default-rtdb.firebaseio.com",
+  projectId: "test-app-1-6ade5",
+  storageBucket: "test-app-1-6ade5.firebasestorage.app",
+  messagingSenderId: "938447574937",
+  appId: "1:938447574937:web:65c1c53a12c665988b2508",
+  measurementId: "G-FKNLFZH4G9"
+};
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// Utility
+function showInfo(msg){
+  const infoEl = document.getElementById("infoMsg");
+  infoEl.textContent = msg;
+  infoEl.style.display = "block";
+}
+function hideInfo(){
+  const infoEl = document.getElementById("infoMsg");
+  infoEl.textContent = "";
+  infoEl.style.display = "none";
+}
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+function randomInt(min, max){return Math.floor(Math.random()*(max-min+1))+min;}
+
+// We will build 100 random length questions of the forms:
+//  1) "Convert X m to cm" or X m Y cm to cm
+//  2) "Convert X cm to m+cm" (e.g., 530 cm => 5 m 30 cm)
+//  3) "Convert X km to m" or X km Y m to m
+//  4) "Convert X m to km+m" (e.g., 6799 m => 6 km 799 m)
+const totalQuestions = 100;
+let questions = [];
+let currentQuestionIndex = 0;
+let score = 0;
+let userKey = "";
+let playerName = "";
+let division = "";
+let rollNo = "";
+let totalTime = 30 * 60; // 30 minutes
+let timerInterval = null;
+let state = "check"; // "check" or "next"
+
+// Generate questions
+function generateQuestions() {
+  const questionTypes = ["mToCm","cmToM","kmToM","mToKm"];
+  for(let i=0; i<totalQuestions; i++){
+    let t = questionTypes[Math.floor(Math.random()*questionTypes.length)];
+    let questionObj = {};
+    switch(t){
+      case "mToCm": {
+        // E.g. 36 m => ____ cm
+        // Sometimes we also do e.g. 6 m 82 cm => ___ cm
+        let withExtraCm = Math.random()<0.3; 
+        if(!withExtraCm){
+          let meters = randomInt(1,99);
+          questionObj.question = `Convert ${meters} m to cm`;
+          questionObj.answer = (meters*100).toString()+" cm";
+          questionObj.explanation = `${meters} m = ${meters*100} cm`;
+        } else {
+          let meters = randomInt(1,20);
+          let leftover = randomInt(1,99);
+          questionObj.question = `Convert ${meters} m ${leftover} cm to cm`;
+          questionObj.answer = (meters*100 + leftover).toString()+" cm";
+          questionObj.explanation = `${meters} m ${leftover} cm = ${meters*100 + leftover} cm`;
+        }
+        break;
+      }
+      case "cmToM": {
+        // E.g. 999 cm => ____ m ____ cm
+        let centimeters = randomInt(101,999); 
+        let mPart = Math.floor(centimeters/100);
+        let cPart = centimeters%100;
+        questionObj.question = `Convert ${centimeters} cm to m and cm`;
+        questionObj.answer = `${mPart} m ${cPart} cm`;
+        questionObj.explanation = `${centimeters} cm = ${mPart} m ${cPart} cm`;
+        break;
+      }
+      case "kmToM": {
+        // E.g. 3 km => 3000 m
+        // Possibly also X km Y m => total in m
+        let withExtraM = Math.random()<0.3;
+        if(!withExtraM){
+          let km = randomInt(1,9);
+          questionObj.question = `Convert ${km} km to m`;
+          questionObj.answer = (km*1000).toString()+" m";
+          questionObj.explanation = `${km} km = ${km*1000} m`;
+        } else {
+          let km = randomInt(1,9);
+          let leftover = randomInt(1,999);
+          questionObj.question = `Convert ${km} km ${leftover} m to m`;
+          questionObj.answer = (km*1000+ leftover).toString()+" m";
+          questionObj.explanation = `${km} km ${leftover} m = ${km*1000+ leftover} m`;
+        }
+        break;
+      }
+      case "mToKm": {
+        // E.g. 6800 m => 6 km 800 m
+        let meters = randomInt(100,9999);
+        let kmPart = Math.floor(meters/1000);
+        let mPart = meters%1000;
+        questionObj.question = `Convert ${meters} m to km and m`;
+        questionObj.answer = `${kmPart} km ${mPart} m`;
+        questionObj.explanation = `${meters} m = ${kmPart} km ${mPart} m`;
+        break;
+      }
+    }
+    questions.push(questionObj);
+  }
+  shuffleArray(questions);
+}
+
+// Start the game
+function startGame(){
+  hideInfo();
+  const nameInput = document.getElementById("playerName").value.trim();
+  const divisionVal = document.getElementById("division").value;
+  const rollNoVal = document.getElementById("rollNo").value.trim();
+  if(!nameInput){
+    showInfo("Please enter your name.");
+    return;
+  }
+  if(!divisionVal){
+    showInfo("Please select your division.");
+    return;
+  }
+  if(!rollNoVal){
+    showInfo("Please enter your roll number.");
+    return;
+  }
+  playerName = nameInput;
+  division = divisionVal;
+  rollNo = rollNoVal;
+  userKey = `${division}_${rollNo}`;
+
+  // Hide intro, show game area
+  document.getElementById("intro").classList.remove("active");
+  document.getElementById("game-area").classList.add("active");
+
+  // Generate questions
+  generateQuestions();
+  showQuestion();
+  startTimer();
+
+  // Initialize / reset user data in Firebase
+  const initialData = {
+    name: playerName,
+    division: division,
+    rollNo: rollNo,
+    score: 0,
+    questionsCompleted: 0,
+    quiz: "measure2",
+    timeStarted: new Date().toISOString(),
+    lastAnswered: new Date().toISOString(),
+    totalQuestions: totalQuestions
+  };
+  database.ref(`results/${userKey}`).set(initialData);
+}
+
+function showQuestion(){
+  let q = questions[currentQuestionIndex];
+  document.getElementById("question-count").textContent = "Question " + (currentQuestionIndex+1) + " of " + totalQuestions;
+  document.getElementById("question-text").textContent = q.question;
+
+  let feedbackEl = document.getElementById("feedback");
+  let explanationEl = document.getElementById("explanation");
+  feedbackEl.style.display = "none";
+  feedbackEl.textContent = "";
+  explanationEl.style.display = "none";
+  explanationEl.textContent = "";
+
+  document.getElementById("userAnswer").value = "";
+  document.getElementById("actionBtn").textContent = "Check";
+  state = "check";
+}
+
+function actionButtonClicked(){
+  if(state==="check"){
+    checkAnswer();
+  } else {
+    nextQuestion();
+  }
+}
+
+function checkAnswer(){
+  let userAns = document.getElementById("userAnswer").value.trim();
+  let q = questions[currentQuestionIndex];
+  let correctAns = q.answer.trim().toLowerCase();
+  let feedbackEl = document.getElementById("feedback");
+  let explanationEl = document.getElementById("explanation");
+
+  feedbackEl.style.display = "block";
+  explanationEl.style.display = "block";
+  feedbackEl.classList.remove("correct","incorrect");
+
+  if(userAns.toLowerCase()===correctAns){
+    feedbackEl.textContent = "Correct!";
+    feedbackEl.classList.add("correct");
+    explanationEl.textContent = q.explanation;
+    score += 10;
+  } else {
+    feedbackEl.textContent = "Incorrect!";
+    feedbackEl.classList.add("incorrect");
+    explanationEl.textContent = "Answer: " + q.answer + ". " + q.explanation;
+  }
+
+  document.getElementById("scoreboard").textContent = "Score: " + score;
+  document.getElementById("actionBtn").textContent = "Next";
+  state = "next";
+
+  // Update Firebase
+  const timestamp = new Date().toISOString();
+  const questionsCompleted = currentQuestionIndex + 1;
+  database.ref(`results/${userKey}`).update({
+    score: score,
+    questionsCompleted: questionsCompleted,
+    lastAnswered: timestamp
+  });
+}
+
+function nextQuestion(){
+  currentQuestionIndex++;
+  if(currentQuestionIndex >= totalQuestions){
+    endGame();
+  } else {
+    showQuestion();
+  }
+}
+
+function startTimer(){
+  const timerEl = document.getElementById("timer");
+  timerInterval = setInterval(()=>{
+    if(totalTime <= 0){
+      clearInterval(timerInterval);
+      endGame();
+      return;
+    }
+    totalTime--;
+    let minutes = Math.floor(totalTime/60);
+    let seconds = totalTime % 60;
+    if(seconds < 10) seconds = "0"+seconds;
+    timerEl.textContent = "Time: " + minutes + ":" + seconds;
+  },1000);
+}
+
+function endGame(){
+  clearInterval(timerInterval);
+  document.getElementById("game-area").classList.remove("active");
+  document.getElementById("result-area").classList.add("active");
+  document.getElementById("final-message").textContent = "Great job, " + playerName + "!";
+  document.getElementById("final-score").textContent = "Your Score: " + score + " out of " + (totalQuestions*10);
+
+  const timestamp = new Date().toISOString();
+  database.ref(`results/${userKey}`).update({
+    finalScore: score,
+    timeEnded: timestamp,
+    totalTime: 18*60 - totalTime,
+    questionsCompleted: totalQuestions
+  });
+}
+</script>
+</body>
+</html>
